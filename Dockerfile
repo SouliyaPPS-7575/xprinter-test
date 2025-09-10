@@ -3,9 +3,9 @@
 FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
-"# Install deps first (better layer caching)"
+# Install deps first (better layer caching)
 COPY package.json bun.lockb ./
-"# Install using Bun to avoid npm optional-deps bug with Rollup on musl"
+# Install using Bun to avoid npm optional-deps bug with Rollup on musl
 RUN bun install --frozen-lockfile
 
 # Copy source and build
