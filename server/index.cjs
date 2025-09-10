@@ -4,6 +4,7 @@
 const http = require('http');
 const url = require('url');
 const { testXprinterConnection, buildEscPosReceipt, printToXprinter } = require('./xprinter.cjs');
+const { buildEscPosFromPngBuffer } = require('./escpos-image.cjs');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
@@ -57,7 +58,7 @@ const server = http.createServer(async (req, res) => {
       await testXprinterConnection({ host, port, timeoutMs });
       sendJson(res, 200, { ok: true });
     } catch (err) {
-      sendJson(res, 500, { ok: false, error: String(err && err.message || err) });
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) });
     }
     return;
   }
@@ -77,6 +78,26 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+
+  // XPRINTER: print bitmap (PNG data URL or base64)
+  if (method === 'POST' && path === '/api/printers/xprinter/print_png') {
+    try {
+      const body = await readJson(req);
+      const { host, port = 9100, pngBase64, dataUrl, threshold = 200 } = body || {};
+      if (!host) return sendJson(res, 400, { ok: false, error: 'Missing host' });
+      const b64 = pngBase64 || (typeof dataUrl === 'string' && dataUrl.includes('base64,') ? dataUrl.split('base64,').pop() : null);
+      if (!b64) return sendJson(res, 400, { ok: false, error: 'Missing PNG data' });
+      const pngBuf = Buffer.from(String(b64), 'base64');
+      const data = buildEscPosFromPngBuffer(pngBuf, { threshold });
+      await printToXprinter({ host, port, data });
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) });
+    }
+    return;
+  }
+
+  // Removed HTMLDocs-based printing endpoint
 
   if (method === 'GET' && path === '/healthz') {
     sendJson(res, 200, { status: 'ok' });
