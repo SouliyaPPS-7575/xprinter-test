@@ -16,8 +16,10 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# No runtime npm deps are required for the simple HTTP server,
-# so skip installing node_modules in the runner image.
+# Install production runtime deps needed by the server (e.g., pngjs)
+COPY --from=builder /app/package.json ./
+# Use npm install (not ci) to avoid lockfile sync failures in CI
+RUN npm install --omit=dev --no-audit --no-fund
 
 # Copy server and built client
 COPY --from=builder /app/server ./server
