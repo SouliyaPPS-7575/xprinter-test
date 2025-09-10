@@ -1,16 +1,16 @@
 # Build the client with Vite and run a small Node server that also serves the static files
 
-FROM node:20-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
-# Install deps first (better layer caching)
-COPY package.json package-lock.json ./
-# Use install (not ci) to allow lockfile update inside builder
-RUN npm install --no-audit --no-fund
+"# Install deps first (better layer caching)"
+COPY package.json bun.lockb ./
+"# Install using Bun to avoid npm optional-deps bug with Rollup on musl"
+RUN bun install --frozen-lockfile
 
 # Copy source and build
 COPY . ./
-RUN npm run build
+RUN bun run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
