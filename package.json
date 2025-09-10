@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview --open",
-    "server": "node server/index.cjs"
+    "server": "node server/index.cjs",
+    "start": "node server/index.cjs"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.0.0",

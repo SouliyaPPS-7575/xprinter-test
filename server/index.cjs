@@ -3,18 +3,32 @@
 
 const http = require('http');
 const url = require('url');
+const fs = require('fs');
+const path = require('path');
 const { testXprinterConnection, buildEscPosReceipt, printToXprinter } = require('./xprinter.cjs');
 const { buildEscPosFromPngBuffer } = require('./escpos-image.cjs');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+const CLIENT_DIR = path.join(__dirname, '..', 'dist');
+const INDEX_HTML = path.join(CLIENT_DIR, 'index.html');
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
+};
 
 function sendJson(res, code, data) {
   res.statusCode = code;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  // Basic CORS for local dev (Vite default port 5173)
-  res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || 'http://localhost:5173');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.end(JSON.stringify(data));
 }
 
@@ -34,7 +48,7 @@ async function readJson(req) {
 const server = http.createServer(async (req, res) => {
   const { method } = req;
   const parsed = url.parse(req.url, true);
-  const path = parsed.pathname || '/';
+  const pathname = parsed.pathname || '/';
   // Set permissive CORS for dev, or use explicit CORS_ORIGIN
   const origin = req.headers.origin || process.env.CORS_ORIGIN || '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
@@ -50,7 +64,7 @@ const server = http.createServer(async (req, res) => {
   // Removed /api/printers/scan endpoint
 
   // XPRINTER: test TCP connectivity
-  if (method === 'POST' && path === '/api/printers/xprinter/test') {
+  if (method === 'POST' && pathname === '/api/printers/xprinter/test') {
     try {
       const body = await readJson(req);
       const { host, port = 9100, timeoutMs = 1500 } = body || {};
@@ -64,7 +78,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // XPRINTER: print a bill via ESC/POS over TCP
-  if (method === 'POST' && path === '/api/printers/xprinter/print') {
+  if (method === 'POST' && pathname === '/api/printers/xprinter/print') {
     try {
       const body = await readJson(req);
       const { host, port = 9100, bill, opts } = body || {};
@@ -99,12 +113,43 @@ const server = http.createServer(async (req, res) => {
 
   // Removed HTMLDocs-based printing endpoint
 
-  if (method === 'GET' && path === '/healthz') {
+  if (method === 'GET' && pathname === '/healthz') {
     sendJson(res, 200, { status: 'ok' });
     return;
   }
 
+  // Serve static frontend (SPA) for non-API requests
+  if (method === 'GET' || method === 'HEAD') {
+    if (!pathname.startsWith('/api')) {
+      // Normalize and prevent path traversal
+      const safePath = pathname.replace(/\0/g, '').replace(/\.\./g, '');
+      let filePath = pathname === '/' ? INDEX_HTML : pathModuleJoin(CLIENT_DIR, safePath);
+      try {
+        const stat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
+        if (!stat || stat.isDirectory()) filePath = INDEX_HTML;
+      } catch {
+        filePath = INDEX_HTML;
+      }
+      try {
+        const ext = path.extname(filePath).toLowerCase();
+        const mime = MIME[ext] || 'application/octet-stream';
+        const stream = fs.createReadStream(filePath);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', mime);
+        stream.on('error', () => notFound(res));
+        stream.pipe(res);
+        return;
+      } catch {
+        // fallthrough to 404
+      }
+    }
+  }
+
   notFound(res);
+
+  function pathModuleJoin(base, p) {
+    try { return path.join(base, decodeURIComponent(p)); } catch { return path.join(base, p); }
+  }
 });
 
 server.listen(PORT, () => {
