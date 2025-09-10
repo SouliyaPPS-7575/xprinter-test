@@ -16,10 +16,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install only production deps, using the updated lockfile from builder
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
+# No runtime npm deps are required for the simple HTTP server,
+# so skip installing node_modules in the runner image.
 
 # Copy server and built client
 COPY --from=builder /app/server ./server
