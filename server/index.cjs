@@ -5,7 +5,11 @@ const http = require('http');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
-const { testXprinterConnection, buildEscPosReceipt, printToXprinter } = require('./xprinter.cjs');
+const {
+  testXprinterConnection,
+  buildEscPosReceipt,
+  printToXprinter,
+} = require('./xprinter.cjs');
 const { buildEscPosFromPngBuffer } = require('./escpos-image.cjs');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
@@ -42,7 +46,11 @@ async function readJson(req) {
   for await (const ch of req) chunks.push(ch);
   const buf = Buffer.concat(chunks).toString('utf8');
   if (!buf) return {};
-  try { return JSON.parse(buf); } catch (e) { throw new Error('Invalid JSON body'); }
+  try {
+    return JSON.parse(buf);
+  } catch (e) {
+    throw new Error('Invalid JSON body');
+  }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -68,11 +76,15 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await readJson(req);
       const { host, port = 9100, timeoutMs = 1500 } = body || {};
-      if (!host) return sendJson(res, 400, { ok: false, error: 'Missing host' });
+      if (!host)
+        return sendJson(res, 400, { ok: false, error: 'Missing host' });
       await testXprinterConnection({ host, port, timeoutMs });
       sendJson(res, 200, { ok: true });
     } catch (err) {
-      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) });
+      sendJson(res, 500, {
+        ok: false,
+        error: String((err && err.message) || err),
+      });
     }
     return;
   }
@@ -82,13 +94,18 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await readJson(req);
       const { host, port = 9100, bill, opts } = body || {};
-      if (!host) return sendJson(res, 400, { ok: false, error: 'Missing host' });
-      if (!bill) return sendJson(res, 400, { ok: false, error: 'Missing bill' });
+      if (!host)
+        return sendJson(res, 400, { ok: false, error: 'Missing host' });
+      if (!bill)
+        return sendJson(res, 400, { ok: false, error: 'Missing bill' });
       const data = buildEscPosReceipt(bill, opts);
       await printToXprinter({ host, port, data });
       sendJson(res, 200, { ok: true });
     } catch (err) {
-      sendJson(res, 500, { ok: false, error: String(err && err.message || err) });
+      sendJson(res, 500, {
+        ok: false,
+        error: String((err && err.message) || err),
+      });
     }
     return;
   }
@@ -97,16 +114,31 @@ const server = http.createServer(async (req, res) => {
   if (method === 'POST' && path === '/api/printers/xprinter/print_png') {
     try {
       const body = await readJson(req);
-      const { host, port = 9100, pngBase64, dataUrl, threshold = 200 } = body || {};
-      if (!host) return sendJson(res, 400, { ok: false, error: 'Missing host' });
-      const b64 = pngBase64 || (typeof dataUrl === 'string' && dataUrl.includes('base64,') ? dataUrl.split('base64,').pop() : null);
-      if (!b64) return sendJson(res, 400, { ok: false, error: 'Missing PNG data' });
+      const {
+        host,
+        port = 9100,
+        pngBase64,
+        dataUrl,
+        threshold = 200,
+      } = body || {};
+      if (!host)
+        return sendJson(res, 400, { ok: false, error: 'Missing host' });
+      const b64 =
+        pngBase64 ||
+        (typeof dataUrl === 'string' && dataUrl.includes('base64,')
+          ? dataUrl.split('base64,').pop()
+          : null);
+      if (!b64)
+        return sendJson(res, 400, { ok: false, error: 'Missing PNG data' });
       const pngBuf = Buffer.from(String(b64), 'base64');
       const data = buildEscPosFromPngBuffer(pngBuf, { threshold });
       await printToXprinter({ host, port, data });
       sendJson(res, 200, { ok: true });
     } catch (err) {
-      sendJson(res, 500, { ok: false, error: String((err && err.message) || err) });
+      sendJson(res, 500, {
+        ok: false,
+        error: String((err && err.message) || err),
+      });
     }
     return;
   }
@@ -123,7 +155,8 @@ const server = http.createServer(async (req, res) => {
     if (!pathname.startsWith('/api')) {
       // Normalize and prevent path traversal
       const safePath = pathname.replace(/\0/g, '').replace(/\.\./g, '');
-      let filePath = pathname === '/' ? INDEX_HTML : pathModuleJoin(CLIENT_DIR, safePath);
+      let filePath =
+        pathname === '/' ? INDEX_HTML : pathModuleJoin(CLIENT_DIR, safePath);
       try {
         const stat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
         if (!stat || stat.isDirectory()) filePath = INDEX_HTML;
@@ -148,7 +181,11 @@ const server = http.createServer(async (req, res) => {
   notFound(res);
 
   function pathModuleJoin(base, p) {
-    try { return path.join(base, decodeURIComponent(p)); } catch { return path.join(base, p); }
+    try {
+      return path.join(base, decodeURIComponent(p));
+    } catch {
+      return path.join(base, p);
+    }
   }
 });
 

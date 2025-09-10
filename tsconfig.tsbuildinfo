@@ -1,1 +1,1 @@
-{"root":["./src/env.d.ts","./src/main.tsx","./src/router.tsx","./src/routes/xprinter.tsx","./src/utils/xprinter.ts","./vite.config.ts"],"version":"5.9.2"}
+{"root":["./src/env.d.ts","./src/main.tsx","./src/routetree.gen.ts","./src/hooks/usexprinter.ts","./src/routes/__root.tsx","./src/routes/index.tsx","./src/routes/xprinter.tsx","./src/utils/xprinter.ts","./vite.config.ts"],"version":"5.9.2"}
