@@ -11,5 +11,5 @@ services:
         value: production
       # Optionally restrict CORS to your site URL after deploy
       # - key: CORS_ORIGIN
-      #   value: https://your-site.onrender.com
+      #   value: https://xprinter-test.onrender.com
 
