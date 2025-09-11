@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: xprinter-test
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Optionally restrict CORS to your site URL after deploy
+      # - key: CORS_ORIGIN
+      #   value: https://your-site.onrender.com
+
