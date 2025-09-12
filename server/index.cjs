@@ -56,7 +56,9 @@ async function readJson(req) {
 const server = http.createServer(async (req, res) => {
   const { method } = req;
   const parsed = url.parse(req.url, true);
-  const pathname = parsed.pathname || '/';
+  // normalize path and remove trailing slashes except for root
+  let pathname = parsed.pathname || '/';
+  if (pathname.length > 1) pathname = pathname.replace(/\/+$/g, '');
   // Set permissive CORS for dev, or use explicit CORS_ORIGIN
   const origin = req.headers.origin || process.env.CORS_ORIGIN || '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
@@ -81,7 +83,9 @@ const server = http.createServer(async (req, res) => {
       await testXprinterConnection({ host, port, timeoutMs });
       sendJson(res, 200, { ok: true });
     } catch (err) {
-      sendJson(res, 500, {
+      const code = err && err.code;
+      const isNet = code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH';
+      sendJson(res, isNet ? 502 : 500, {
         ok: false,
         error: String((err && err.message) || err),
       });
@@ -102,7 +106,9 @@ const server = http.createServer(async (req, res) => {
       await printToXprinter({ host, port, data });
       sendJson(res, 200, { ok: true });
     } catch (err) {
-      sendJson(res, 500, {
+      const code = err && err.code;
+      const isNet = code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH';
+      sendJson(res, isNet ? 502 : 500, {
         ok: false,
         error: String((err && err.message) || err),
       });
@@ -111,7 +117,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // XPRINTER: print bitmap (PNG data URL or base64)
-  if (method === 'POST' && path === '/api/printers/xprinter/print_png') {
+  if (method === 'POST' && pathname === '/api/printers/xprinter/print_png') {
     try {
       const body = await readJson(req);
       const {
@@ -130,12 +136,25 @@ const server = http.createServer(async (req, res) => {
           : null);
       if (!b64)
         return sendJson(res, 400, { ok: false, error: 'Missing PNG data' });
-      const pngBuf = Buffer.from(String(b64), 'base64');
-      const data = buildEscPosFromPngBuffer(pngBuf, { threshold });
+      let pngBuf;
+      try {
+        pngBuf = Buffer.from(String(b64), 'base64');
+        if (!pngBuf || pngBuf.length < 8) throw new Error('Empty PNG buffer');
+      } catch (e) {
+        return sendJson(res, 400, { ok: false, error: 'Invalid base64 PNG' });
+      }
+      let data;
+      try {
+        data = buildEscPosFromPngBuffer(pngBuf, { threshold });
+      } catch (e) {
+        return sendJson(res, 400, { ok: false, error: 'Invalid PNG image data' });
+      }
       await printToXprinter({ host, port, data });
       sendJson(res, 200, { ok: true });
     } catch (err) {
-      sendJson(res, 500, {
+      const code = err && err.code;
+      const isNet = code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH';
+      sendJson(res, isNet ? 502 : 500, {
         ok: false,
         error: String((err && err.message) || err),
       });
@@ -155,8 +174,8 @@ const server = http.createServer(async (req, res) => {
     if (!pathname.startsWith('/api')) {
       // Normalize and prevent path traversal
       const safePath = pathname.replace(/\0/g, '').replace(/\.\./g, '');
-      let filePath =
-        pathname === '/' ? INDEX_HTML : pathModuleJoin(CLIENT_DIR, safePath);
+      const relPath = safePath.startsWith('/') ? safePath.slice(1) : safePath;
+      let filePath = pathname === '/' ? INDEX_HTML : pathModuleJoin(CLIENT_DIR, relPath);
       try {
         const stat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
         if (!stat || stat.isDirectory()) filePath = INDEX_HTML;

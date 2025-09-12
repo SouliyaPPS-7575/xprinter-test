@@ -7,7 +7,7 @@ function connectSocket(host, port, timeoutMs = 2000) {
     const socket = new net.Socket();
     let done = false;
     const onError = (err) => { if (!done) { done = true; try { socket.destroy(); } catch {} reject(err); } };
-    const onConnect = () => { if (!done) { done = true; resolve(socket); } };
+    const onConnect = () => { if (!done) { done = true; try { socket.setNoDelay(true); socket.setKeepAlive(false); } catch {} resolve(socket); } };
     socket.once('error', onError);
     socket.setTimeout(timeoutMs, () => onError(new Error('Connection timeout')));
     socket.connect(port, host, onConnect);
@@ -96,10 +96,39 @@ async function printToXprinter({ host, port = 9100, data, timeoutMs = 2000 }) {
   if (!Buffer.isBuffer(data)) data = Buffer.from(data);
   const sock = await connectSocket(host, port, timeoutMs);
   await new Promise((resolve, reject) => {
+    let settled = false;
+
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      // Best-effort cleanup: remove listeners and schedule destroy slightly later
+      try {
+        sock.removeAllListeners('error');
+        sock.removeAllListeners('timeout');
+        sock.removeAllListeners('close');
+      } catch {}
+      if (err) {
+        try { sock.destroy(); } catch {}
+        return reject(err);
+      }
+      // Allow a brief linger to flush buffers then force close
+      setTimeout(() => {
+        try { sock.destroy(); } catch {}
+      }, 250);
+      resolve();
+    };
+
+    sock.once('error', (err) => finish(err));
+
+    // Guard against printers that hold the connection open forever
+    sock.setTimeout(timeoutMs, () => finish(new Error('Write timeout')));
+
+    // Write and resolve on successful callback; do not wait for 'close'
     sock.write(data, (err) => {
-      if (err) { try { sock.destroy(); } catch {} return reject(err); }
-      // Give the printer a bit of time to receive data then close
-      setTimeout(() => { try { sock.end(); } catch {} resolve(); }, 100);
+      if (err) return finish(err);
+      try { sock.end(); } catch {}
+      // Resolve immediately; rely on linger timer for cleanup
+      finish();
     });
   });
 }
