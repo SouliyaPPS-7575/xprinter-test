@@ -1,0 +1,31 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Uses Railway's official GitHub Action to trigger a deploy
+      # Requires repository secrets:
+      # - RAILWAY_TOKEN: Railway account token (scoped to the project)
+      # Optional (recommended):
+      # - RAILWAY_PROJECT_ID: Railway project ID
+      # - RAILWAY_SERVICE: Railway service name or ID (e.g., xprinter-test)
+      - name: Deploy
+        uses: railwayapp/railway-action@v1
+        with:
+          railwayToken: ${{ secrets.RAILWAY_TOKEN }}
+          projectId: ${{ secrets.RAILWAY_PROJECT_ID }}
+          service: ${{ secrets.RAILWAY_SERVICE }}
+          # Set to true to mark as production deployment
+          detach: false
+        env:
+          RAILWAY_PRODUCTION: true
+
