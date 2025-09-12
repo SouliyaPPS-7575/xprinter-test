@@ -8,6 +8,10 @@ COPY package.json bun.lockb ./
 # Install using Bun to avoid npm optional-deps bug with Rollup on musl
 RUN bun install --frozen-lockfile
 
+# Optionally pass API base for the client at build time (defaults same-origin)
+ARG VITE_API_URL=""
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Copy source and build
 COPY . ./
 RUN bun run build
@@ -25,6 +29,14 @@ RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/dist ./dist
 
+# Run as non-root for security
+USER node
+
 # Railway provides PORT env; our server respects it (defaults 4000)
 EXPOSE 4000
+
+# Simple healthcheck hits the server's /healthz endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:${PORT:-4000}/healthz >/dev/null 2>&1 || exit 1
+
 CMD ["node", "server/index.cjs"]
