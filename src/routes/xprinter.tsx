@@ -9,6 +9,7 @@ const DEFAULT_HOST = '192.168.66.190';
 export const Xprinter: React.FC = () => {
   const [host, setHost] = useState(DEFAULT_HOST);
   const [port, setPort] = useState(9100);
+  const [timeoutMs, setTimeoutMs] = useState(3000);
   const [msg, setMsg] = useState<string | null>(null);
   const receiptRef = useRef<HTMLDivElement | null>(null);
   const [bill, setBill] = useState<Bill>({
@@ -47,7 +48,7 @@ export const Xprinter: React.FC = () => {
   const handleTest = async () => {
     setMsg(null);
     try {
-      await testMutation.mutateAsync({ host, port });
+      await testMutation.mutateAsync({ host, port, timeoutMs });
       setMsg('ເຊື່ອມຕໍ່ສຳເລັດ');
       saveCfg(host, port);
     } catch (err: any) {
@@ -61,7 +62,7 @@ export const Xprinter: React.FC = () => {
     try {
       const el = receiptRef.current;
       if (!el) throw new Error('Receipt element not ready');
-      await printMutation.mutateAsync({ host, port, element: el, threshold: 200 });
+      await printMutation.mutateAsync({ host, port, element: el, threshold: 200, timeoutMs });
       setMsg('ສົ່ງໄປຫາເຄື່ອງພິມແລ້ວ');
       saveCfg(host, port);
     } catch (err: any) {
@@ -186,6 +187,12 @@ export const Xprinter: React.FC = () => {
           type='number'
           value={port}
           onChange={(e) => setPort(Number(e.target.value) || 9100)}
+        />
+        <label>Timeout (ms)</label>
+        <input
+          type='number'
+          value={timeoutMs}
+          onChange={(e) => setTimeoutMs(Math.max(500, Number(e.target.value) || 3000))}
         />
       </div>
       <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>

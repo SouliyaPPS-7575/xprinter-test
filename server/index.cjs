@@ -88,6 +88,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, isNet ? 502 : 500, {
         ok: false,
         error: String((err && err.message) || err),
+        code: code || undefined,
       });
     }
     return;
@@ -111,6 +112,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, isNet ? 502 : 500, {
         ok: false,
         error: String((err && err.message) || err),
+        code: code || undefined,
       });
     }
     return;
@@ -157,6 +159,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, isNet ? 502 : 500, {
         ok: false,
         error: String((err && err.message) || err),
+        code: code || undefined,
       });
     }
     return;

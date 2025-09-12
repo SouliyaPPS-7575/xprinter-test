@@ -6,15 +6,57 @@ function connectSocket(host, port, timeoutMs = 2000) {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     let done = false;
-    const onError = (err) => { if (!done) { done = true; try { socket.destroy(); } catch {} reject(err); } };
-    const onConnect = () => { if (!done) { done = true; try { socket.setNoDelay(true); socket.setKeepAlive(false); } catch {} resolve(socket); } };
+
+    const cleanup = () => {
+      try { socket.removeAllListeners('error'); } catch {}
+      try { socket.removeAllListeners('timeout'); } catch {}
+      try { socket.removeAllListeners('connect'); } catch {}
+    };
+
+    const finish = (err, sock) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      if (err) {
+        try { socket.destroy(); } catch {}
+        return reject(err);
+      }
+      return resolve(sock);
+    };
+
+    // Proactive timer to abort slow DNS/connect attempts
+    const timer = setTimeout(() => {
+      const err = new Error('Connection timeout');
+      // mark as network timeout so HTTP layer returns 502
+      // @ts-ignore
+      err.code = 'ETIMEDOUT';
+      finish(err);
+    }, timeoutMs);
+
+    const onError = (err) => {
+      clearTimeout(timer);
+      finish(err);
+    };
+
+    const onConnect = () => {
+      clearTimeout(timer);
+      try { socket.setNoDelay(true); socket.setKeepAlive(false); } catch {}
+      finish(null, socket);
+    };
+
     socket.once('error', onError);
-    socket.setTimeout(timeoutMs, () => onError(new Error('Connection timeout')));
+    // Keep a socket-level timeout as a secondary guard once connected
+    socket.setTimeout(timeoutMs, () => {
+      const err = new Error('Connection idle timeout');
+      // @ts-ignore
+      err.code = 'ETIMEDOUT';
+      onError(err);
+    });
     socket.connect(port, host, onConnect);
   });
 }
 
-async function testXprinterConnection({ host, port = 9100, timeoutMs = 1500 }) {
+async function testXprinterConnection({ host, port = 9100, timeoutMs = 3000 }) {
   const sock = await connectSocket(host, port, timeoutMs);
   try {
     // Send DLE EOT 2 (Real-time status transmission request for printer)
@@ -92,7 +134,7 @@ function buildEscPosReceipt(bill, opts = {}) {
   return Buffer.concat(chunks);
 }
 
-async function printToXprinter({ host, port = 9100, data, timeoutMs = 2000 }) {
+async function printToXprinter({ host, port = 9100, data, timeoutMs = 4000 }) {
   if (!Buffer.isBuffer(data)) data = Buffer.from(data);
   const sock = await connectSocket(host, port, timeoutMs);
   await new Promise((resolve, reject) => {
@@ -121,7 +163,12 @@ async function printToXprinter({ host, port = 9100, data, timeoutMs = 2000 }) {
     sock.once('error', (err) => finish(err));
 
     // Guard against printers that hold the connection open forever
-    sock.setTimeout(timeoutMs, () => finish(new Error('Write timeout')));
+    sock.setTimeout(timeoutMs, () => {
+      const err = new Error('Write timeout');
+      // @ts-ignore
+      err.code = 'ETIMEDOUT';
+      finish(err);
+    });
 
     // Write and resolve on successful callback; do not wait for 'close'
     sock.write(data, (err) => {

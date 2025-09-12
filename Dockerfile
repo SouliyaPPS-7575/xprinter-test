@@ -35,8 +35,8 @@ USER node
 # Railway provides PORT env; our server respects it (defaults 4000)
 EXPOSE 4000
 
-# Simple healthcheck hits the server's /healthz endpoint
+# Simple healthcheck hits the server's /healthz endpoint without requiring curl/wget
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:${PORT:-4000}/healthz >/dev/null 2>&1 || exit 1
+  CMD node -e "const http=require('http');const p=process.env.PORT||4000;http.get('http://127.0.0.1:'+p+'/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
 CMD ["node", "server/index.cjs"]

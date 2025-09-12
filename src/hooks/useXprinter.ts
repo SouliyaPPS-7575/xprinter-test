@@ -25,9 +25,9 @@ export function useXprinterConfig(lsKey = 'xprinter:config') {
 export function useTestXprinterMutation() {
   return useMutation({
     mutationKey: ['xprinter', 'test'],
-    mutationFn: async (vars: { host: string; port: number }) => {
-      const { host, port } = vars
-      return testXprinter(host, port)
+    mutationFn: async (vars: { host: string; port: number; timeoutMs?: number }) => {
+      const { host, port, timeoutMs } = vars
+      return testXprinter(host, port, timeoutMs)
     },
   })
 }
@@ -35,14 +35,13 @@ export function useTestXprinterMutation() {
 export function usePrintBitmapMutation() {
   return useMutation({
     mutationKey: ['xprinter', 'print', 'bitmap'],
-    mutationFn: async (vars: { host: string; port: number; element: HTMLElement; threshold?: number }) => {
-      const { host, port, element, threshold = 200 } = vars
+    mutationFn: async (vars: { host: string; port: number; element: HTMLElement; threshold?: number; timeoutMs?: number }) => {
+      const { host, port, element, threshold = 200, timeoutMs } = vars
       // Ensure a brief delay for fonts
       await new Promise((r) => setTimeout(r, 100))
       const canvas = await html2canvas(element, { backgroundColor: '#ffffff', scale: 2 })
       const dataUrl = canvas.toDataURL('image/png')
-      return printBitmapXprinter(host, port, dataUrl, threshold)
+      return printBitmapXprinter(host, port, dataUrl, threshold, timeoutMs)
     },
   })
 }
-
