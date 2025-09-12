@@ -59,9 +59,9 @@ const server = http.createServer(async (req, res) => {
   // normalize path and remove trailing slashes except for root
   let pathname = parsed.pathname || '/';
   if (pathname.length > 1) pathname = pathname.replace(/\/+$/g, '');
-  // Set permissive CORS for dev, or use explicit CORS_ORIGIN
-  const origin = req.headers.origin || process.env.CORS_ORIGIN || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+  // CORS: if CORS_ORIGIN is set, prefer it; otherwise mirror request origin (dev) or '*'
+  const allowOrigin = process.env.CORS_ORIGIN || req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
