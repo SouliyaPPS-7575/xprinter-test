@@ -20,9 +20,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install production runtime deps deterministically (server-only needs)
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
+# Install production runtime deps (tolerant to lockfile drift)
+COPY package.json ./
+RUN npm install --omit=dev --no-audit --no-fund
 
 # Copy server and built client
 COPY --from=builder /app/server ./server
