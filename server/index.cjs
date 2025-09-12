@@ -165,6 +165,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Runtime environment for the client (allows pointing UI to external API base)
+  if ((method === 'GET' || method === 'HEAD') && pathname === '/env.js') {
+    const apiBase =
+      process.env.API_BASE ||
+      process.env.RUNTIME_API_BASE ||
+      process.env.VITE_API_URL ||
+      '';
+    const js = `// generated at runtime\nwindow.__API_BASE = ${JSON.stringify(apiBase)};`;
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.end(js);
+    return;
+  }
+
   // Removed HTMLDocs-based printing endpoint
 
   if (method === 'GET' && pathname === '/healthz') {

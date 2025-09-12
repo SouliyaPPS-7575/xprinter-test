@@ -6,7 +6,22 @@ export type Bill = {
   footer?: string
 }
 
-const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || ''
+function resolveApiBase(): string {
+  // Prefer runtime config if available (set by /env.js)
+  try {
+    const w: any = typeof window !== 'undefined' ? (window as any) : undefined;
+    if (w && typeof w.__API_BASE === 'string' && w.__API_BASE) return w.__API_BASE;
+  } catch {}
+  // Fallback to build-time Vite env
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v = (import.meta as any)?.env?.VITE_API_URL;
+    if (typeof v === 'string' && v) return v;
+  } catch {}
+  return '';
+}
+
+const API_BASE = resolveApiBase()
 
 async function postJson(path: string, body: any) {
   const url = `${API_BASE}${path}`
